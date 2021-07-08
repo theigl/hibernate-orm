@@ -12,6 +12,8 @@ import javax.persistence.TupleElement;
 
 import org.hibernate.ScrollMode;
 import org.hibernate.ScrollableResults;
+import org.hibernate.dialect.AbstractHANADialect;
+import org.hibernate.engine.spi.SessionImplementor;
 import org.hibernate.query.Query;
 import org.hibernate.query.spi.QueryImplementor;
 import org.hibernate.query.spi.ScrollableResultsImplementor;
@@ -263,19 +265,23 @@ public class ScrollableResultsTests {
 			validator.accept( results.get() );
 		}
 
-		try ( final ScrollableResults<R> results = query.scroll( ScrollMode.SCROLL_INSENSITIVE ) ) {
-			assertThat( results.next(), is( true ) );
-			validator.accept( results.get() );
-		}
+		final SessionImplementor session = (SessionImplementor) query.getSession();
+		// HANA supports only ResultSet.TYPE_FORWARD_ONLY
+		if ( !( session.getFactory().getJdbcServices().getDialect() instanceof AbstractHANADialect ) ) {
+			try (final ScrollableResults<R> results = query.scroll( ScrollMode.SCROLL_INSENSITIVE )) {
+				assertThat( results.next(), is( true ) );
+				validator.accept( results.get() );
+			}
 
-		try ( final ScrollableResults<R> results = query.scroll( ScrollMode.SCROLL_SENSITIVE ) ) {
-			assertThat( results.next(), is( true ) );
-			validator.accept( results.get() );
-		}
+			try (final ScrollableResults<R> results = query.scroll( ScrollMode.SCROLL_SENSITIVE )) {
+				assertThat( results.next(), is( true ) );
+				validator.accept( results.get() );
+			}
 
-		try ( final ScrollableResults<R> results = query.scroll( ScrollMode.SCROLL_INSENSITIVE ) ) {
-			assertThat( results.next(), is( true ) );
-			validator.accept( results.get() );
+			try (final ScrollableResults<R> results = query.scroll( ScrollMode.SCROLL_INSENSITIVE )) {
+				assertThat( results.next(), is( true ) );
+				validator.accept( results.get() );
+			}
 		}
 	}
 }

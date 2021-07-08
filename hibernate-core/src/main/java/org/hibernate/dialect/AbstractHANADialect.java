@@ -37,6 +37,7 @@ import org.hibernate.internal.util.JdbcExceptionHelper;
 import org.hibernate.mapping.Table;
 import org.hibernate.procedure.internal.StandardCallableStatementSupport;
 import org.hibernate.procedure.spi.CallableStatementSupport;
+import org.hibernate.query.NullOrdering;
 import org.hibernate.query.TemporalUnit;
 import org.hibernate.query.spi.QueryEngine;
 import org.hibernate.service.ServiceRegistry;
@@ -56,12 +57,14 @@ import org.hibernate.type.descriptor.WrapperOptions;
 import org.hibernate.type.descriptor.java.DataHelper;
 import org.hibernate.type.descriptor.java.JavaTypeDescriptor;
 import org.hibernate.type.descriptor.jdbc.*;
+import org.hibernate.type.internal.StandardBasicTypeImpl;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -1476,7 +1479,47 @@ public abstract class AbstractHANADialect extends Dialect {
 				TREAT_DOUBLE_TYPED_FIELDS_AS_DECIMAL_DEFAULT_VALUE ).booleanValue();
 
 		if ( this.treatDoubleTypedFieldsAsDecimal ) {
+			registerHibernateType( Types.FLOAT, StandardBasicTypes.BIG_DECIMAL.getName() );
+			registerHibernateType( Types.REAL, StandardBasicTypes.BIG_DECIMAL.getName() );
 			registerHibernateType( Types.DOUBLE, StandardBasicTypes.BIG_DECIMAL.getName() );
+			typeContributions.getTypeConfiguration().getBasicTypeRegistry()
+					.register(
+							new StandardBasicTypeImpl<>(
+									org.hibernate.type.descriptor.java.DoubleTypeDescriptor.INSTANCE,
+									NumericTypeDescriptor.INSTANCE
+							),
+							Double.class.getName()
+					);
+			typeContributions.getTypeConfiguration().getJdbcToHibernateTypeContributionMap()
+					.computeIfAbsent( Types.FLOAT, code -> new HashSet<>() )
+					.clear();
+			typeContributions.getTypeConfiguration().getJdbcToHibernateTypeContributionMap()
+					.computeIfAbsent( Types.REAL, code -> new HashSet<>() )
+					.clear();
+			typeContributions.getTypeConfiguration().getJdbcToHibernateTypeContributionMap()
+					.computeIfAbsent( Types.DOUBLE, code -> new HashSet<>() )
+					.clear();
+			typeContributions.getTypeConfiguration().getJdbcToHibernateTypeContributionMap()
+					.get( Types.FLOAT )
+					.add( StandardBasicTypes.BIG_DECIMAL.getName() );
+			typeContributions.getTypeConfiguration().getJdbcToHibernateTypeContributionMap()
+					.get( Types.REAL )
+					.add( StandardBasicTypes.BIG_DECIMAL.getName() );
+			typeContributions.getTypeConfiguration().getJdbcToHibernateTypeContributionMap()
+					.get( Types.DOUBLE )
+					.add( StandardBasicTypes.BIG_DECIMAL.getName() );
+			typeContributions.getTypeConfiguration().getJdbcTypeDescriptorRegistry().addDescriptor(
+					Types.FLOAT,
+					NumericTypeDescriptor.INSTANCE
+			);
+			typeContributions.getTypeConfiguration().getJdbcTypeDescriptorRegistry().addDescriptor(
+					Types.REAL,
+					NumericTypeDescriptor.INSTANCE
+			);
+			typeContributions.getTypeConfiguration().getJdbcTypeDescriptorRegistry().addDescriptor(
+					Types.DOUBLE,
+					NumericTypeDescriptor.INSTANCE
+			);
 		}
 	}
 
@@ -1546,6 +1589,16 @@ public abstract class AbstractHANADialect extends Dialect {
 	@Override
 	public boolean supportsNoColumnsInsert() {
 		return false;
+	}
+
+	@Override
+	public boolean supportsOrderByInSubquery() {
+		return false;
+	}
+
+	@Override
+	public NullOrdering getNullOrdering() {
+		return NullOrdering.SMALLEST;
 	}
 
 	@Override
